@@ -118,7 +118,7 @@ const ToolsTab = ({
   };
 
   return (
-    <TabsContent value="tools" className="grid grid-cols-2 gap-4">
+    <TabsContent value="tools" className="grid grid-cols-2 gap-2">
       <ListPane
         items={tools}
         listItems={listTools}

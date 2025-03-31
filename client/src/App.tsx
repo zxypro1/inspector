@@ -31,6 +31,7 @@ import {
   Hammer,
   Hash,
   MessageSquare,
+  Brain,
 } from "lucide-react";
 
 import { toast } from "react-toastify";
@@ -47,6 +48,7 @@ import Sidebar from "./components/Sidebar";
 import ToolsTab from "./components/ToolsTab";
 import { DEFAULT_INSPECTOR_CONFIG } from "./lib/constants";
 import { InspectorConfig } from "./lib/configurationTypes";
+import LLMTab from "./components/LLMTab";
 
 const params = new URLSearchParams(window.location.search);
 const PROXY_PORT = params.get("proxyPort") ?? "3000";
@@ -480,10 +482,10 @@ const App = () => {
                         ? "tools"
                         : "ping"
               }
-              className="w-full p-4"
+              className="w-full p-2"
               onValueChange={(value) => (window.location.hash = value)}
             >
-              <TabsList className="mb-4 p-0">
+              <TabsList className="mb-2 p-0">
                 <TabsTrigger
                   value="resources"
                   disabled={!serverCapabilities?.resources}
@@ -521,6 +523,10 @@ const App = () => {
                 <TabsTrigger value="roots">
                   <FolderTree className="w-4 h-4 mr-2" />
                   Roots
+                </TabsTrigger>
+                <TabsTrigger value="llm">
+                  <Brain className="w-4 h-4 mr-2" />
+                  LLM
                 </TabsTrigger>
               </TabsList>
 
@@ -651,6 +657,14 @@ const App = () => {
                       roots={roots}
                       setRoots={setRoots}
                       onRootsChange={handleRootsChange}
+                    />
+                    <LLMTab
+                      tools={tools}
+                      callTool={(name, params) => {
+                        clearError("tools");
+                        callTool(name, params);
+                      }}
+                      connectionStatus={connectionStatus}
                     />
                   </>
                 )}

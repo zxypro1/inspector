@@ -182,6 +182,31 @@ app.get("/config", (req, res) => {
   }
 });
 
+// 添加API代理路由
+app.use(express.json());
+app.post("/api-proxy", async (req, res) => {
+  try {
+    const { url, method, headers, body } = req.body;
+    console.log(`代理请求: ${method} ${url}`);
+
+    // 发送请求到目标服务器
+    const response = await fetch(url, {
+      method: method || 'POST',
+      headers: headers || {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    // 获取响应数据
+    const data = await response.json();
+
+    // 返回响应给客户端
+    res.status(response.status).json(data);
+  } catch (error: any) {
+    console.error("代理请求错误:", error);
+    res.status(500).json({ error: error.message || "代理请求失败" });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 const server = app.listen(PORT);

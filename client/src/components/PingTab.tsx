@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 
 const PingTab = ({ onPingClick }: { onPingClick: () => void }) => {
   return (
-    <TabsContent value="ping" className="grid grid-cols-2 gap-4">
+    <TabsContent value="ping" className="grid grid-cols-2 gap-2">
       <div className="col-span-2 flex justify-center items-center">
         <Button
           onClick={onPingClick}

@@ -84,7 +84,7 @@ const PromptsTab = ({
   };
 
   return (
-    <TabsContent value="prompts" className="grid grid-cols-2 gap-4">
+    <TabsContent value="prompts" className="grid grid-cols-2 gap-2">
       <ListPane
         items={prompts}
         listItems={listPrompts}
