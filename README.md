@@ -1,83 +1,81 @@
-# MCP Inspector
+# 应用开发说明
 
-The MCP inspector is a developer tool for testing and debugging MCP servers.
+<p align="center"><b> 中文 | <a href="./readme_en.md"> English </a>  </b></p>
 
-![MCP Inspector Screenshot](mcp-inspector.png)
+> Serverless Devs 应用开发需要严格遵守 [Serverless Package Model](../../spec/zh/0.0.2/serverless_package_model/readme.md) 中的 [应用模型规范](../../spec/zh/0.0.2/serverless_package_model/3.package_model.md#应用模型规范)。在[应用模型规范](../../spec/zh/0.0.2/serverless_package_model/3.package_model.md#应用模型规范)中有关于[应用模型元数据](../../spec/zh/0.0.2/serverless_package_model/3.package_model.md#应用模型元数据)的说明。
 
-## Running the Inspector
+Serverless Devs 的组件开发案例已经被集成到 Serverless Devs 命令行工具中，通过对 Serverless Devs 的命令行工具，可以进行空白应用项目的初始化，开发者只需要执行`s init`即可看到：
 
-### From an MCP server repository
+```shell script
 
-To inspect an MCP server implementation, there's no need to clone this repo. Instead, use `npx`. For example, if your server is built at `build/index.js`:
+🚀  More applications: https://registry.serverless-devs.com
 
-```bash
-npx @modelcontextprotocol/inspector node build/index.js
+? Hello Serverless for Cloud Vendors (Use arrow keys or type to search)
+❯ Alibaba Cloud Serverless
+  AWS Cloud Serverless
+  Tencent Cloud Serverless
+  Baidu Cloud Serverless
+  Dev Template for Serverless Devs
 ```
 
-You can pass both arguments and environment variables to your MCP server. Arguments are passed directly to your server, while environment variables can be set using the `-e` flag:
+此时，选择最后的`Dev Template for Serverless Devs`，并按回车：
 
-```bash
-# Pass arguments only
-npx @modelcontextprotocol/inspector build/index.js arg1 arg2
+```shell script
+$ s init
 
-# Pass environment variables only
-npx @modelcontextprotocol/inspector -e KEY=value -e KEY2=$VALUE2 node build/index.js
+🚀  More applications: https://registry.serverless-devs.com
 
-# Pass both environment variables and arguments
-npx @modelcontextprotocol/inspector -e KEY=value -e KEY2=$VALUE2 node build/index.js arg1 arg2
-
-# Use -- to separate inspector flags from server arguments
-npx @modelcontextprotocol/inspector -e KEY=$VALUE -- node build/index.js -e server-flag
+? Hello Serverless for Cloud Vendors Dev Template for Serverless Devs
+? Which template do you like? (Use arrow keys or type to search)
+❯ Application Scaffolding
+  Component Scaffolding
+  Plugin Scaffolding
 ```
 
-The inspector runs both a client UI (default port 5173) and an MCP proxy server (default port 3000). Open the client UI in your browser to use the inspector. You can customize the ports if needed:
+此时，选择`Application Scaffolding`，并按回车，即可完成一个完整的 Serverless Devs 的 Application 项目的初始化，可以通过命令查看文件树：
 
-```bash
-CLIENT_PORT=8080 SERVER_PORT=9000 npx @modelcontextprotocol/inspector node build/index.js
+```shell script
+$ find . -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
+.
+|____readme.md
+|____version.md
+|____publish.yaml
+|____readme_en.md
+|____src
+| |____s.yaml
+| |____code
+| | |____index.js
+| |____readme.md
 ```
 
-For more details on ways to use the inspector, see the [Inspector section of the MCP docs site](https://modelcontextprotocol.io/docs/tools/inspector). For help with debugging, see the [Debugging guide](https://modelcontextprotocol.io/docs/tools/debugging).
+这其中：
 
-### Authentication
+| 目录         | 含义                                                     |
+| ------------ | -------------------------------------------------------- |
+| readme.md    | 对该组件的描述，或帮助文档信息                           |
+| version.md   | 版本的描述，例如当前版本的更新内容等                     |
+| publish.yaml | 项目所必须的文件，Serverless Devs Package 的开发识别文档 |
+| src          | 应用所在目录，需要包括`s.yaml`和相关的应用代码等         |
 
-The inspector supports bearer token authentication for SSE connections. Enter your token in the UI when connecting to an MCP server, and it will be sent in the Authorization header.
+此时，开发者可以在 src 下完成应用的开发，并对项目进行`publish.yaml`文件的编写。完成之后，即可通过以下几个步骤发布项目：
 
-### Security Considerations
+- 更改 `publish.yaml` 里的 `Version` 字段。确保版本号比现有最高版本号大 1，例如：1.0.0 -> 1.0.1。
 
-The MCP Inspector includes a proxy server that can run and communicate with local MCP processes. The proxy server should not be exposed to untrusted networks as it has permissions to spawn local processes and can connect to any specified MCP server.
+  > 您可以使用固定的 dev 版本用于持续发布测试版本
 
-### Configuration
+- 首次发布需要通过 [registry](https://docs.serverless-devs.com/serverless-devs/command/registry) 命令先登录 Serverless Devs Registry。
 
-The MCP Inspector supports the following configuration settings. To change them click on the `Configuration` button in the MCP Inspector UI :
+  ```shell script
+  s registry login
+  ```
 
-| Name                       | Purpose                                                                                   | Default Value |
-| -------------------------- | ----------------------------------------------------------------------------------------- | ------------- |
-| MCP_SERVER_REQUEST_TIMEOUT | Maximum time in milliseconds to wait for a response from the MCP server before timing out | 10000         |
+  随后浏览器会跳出登陆窗口，根据提示进行操作即可。
 
-### From this repository
+- 后续直接执行 `s registry publish` 即可进行发布
 
-If you're working on the inspector itself:
+- 测试应用
 
-Development mode:
+  如果您使用 dev 版本进行了应用的发布， 假设您的应用名字为 start-application-v3, 那么您可以使用：
 
-```bash
-npm run dev
-```
-
-> **Note for Windows users:**  
-> On Windows, use the following command instead:
->
-> ```bash
-> npm run dev:windows
-> ```
-
-Production mode:
-
-```bash
-npm run build
-npm start
-```
-
-## License
-
-This project is licensed under the MIT License—see the [LICENSE](LICENSE) file for details.
+  - 本地终端执行: `s init start-application-v3@dev`
+  - 浏览器打开: https://fcnext.console.aliyun.com/applications/create?template=start-application-v3@dev 进行测试
