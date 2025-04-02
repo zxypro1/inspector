@@ -11,14 +11,20 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TabsContent } from "@/components/ui/tabs";
-import { CompatibilityCallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import {
+  CompatibilityCallToolResult,
+  Tool,
+} from "@modelcontextprotocol/sdk/types.js";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "highlight.js/styles/github-dark.css";
+import "../styles/markdown.css";
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "tool";
   content: string;
+  tool_call_id?: string;
+  name?: string;
 }
 
 interface ModelConfig {
@@ -49,7 +55,6 @@ interface ApiToolCall {
 // 获取代理服务器URL
 // const params = new URLSearchParams(window.location.search);
 // const PROXY_PORT = params.get("proxyPort") ?? "3000";
-console.log(import.meta.env);
 const PROXY_SERVER_URL = `${import.meta.env.VITE_SERVER_URL}`;
 
 const LLMTab = ({
@@ -58,7 +63,10 @@ const LLMTab = ({
   connectionStatus,
 }: {
   tools: Tool[];
-  callTool: (name: string, params: Record<string, unknown>) => Promise<CompatibilityCallToolResult | null>;
+  callTool: (
+    name: string,
+    params: Record<string, unknown>,
+  ) => Promise<CompatibilityCallToolResult | null>;
   connectionStatus: "connected" | "connecting" | "disconnected" | "error";
 }) => {
   const [apiKey, setApiKey] = useState("");
@@ -224,7 +232,7 @@ const LLMTab = ({
   };
 
   const handleToolCall = async (toolCalls: ToolCall[]) => {
-    const toolResults = [];
+    const toolResults: Message[] = [];
 
     for (const toolCall of toolCalls) {
       if (toolCall.type === "function") {
@@ -253,7 +261,11 @@ const LLMTab = ({
     return toolResults;
   };
 
-  const handleProxyFetch = async (apiUrl: string, messages: Message[], provider: string) => {
+  const handleProxyFetch = async (
+    apiUrl: string,
+    messages: Message[],
+    provider: string,
+  ) => {
     const res = await proxyFetch(apiUrl, {
       method: "POST",
       headers: {
@@ -262,44 +274,44 @@ const LLMTab = ({
       },
       body:
         provider === "openai"
-        ? JSON.stringify({
-            model: selectedModel,
-            messages: messages.map((msg) => ({
-              role: msg.role,
-              content: msg.content,
-            })),
-            tools: formatToolsForModel(tools, provider),
-            tool_choice: "auto",
-          })
-        : JSON.stringify({
-            model: selectedModel,
-            input: {
-              messages: formatMessagesForQianwen(messages),
-            },
-            parameters: {
-              result_format: "message",
+          ? JSON.stringify({
+              model: selectedModel,
+              messages: messages.map((msg) => ({
+                role: msg.role,
+                content: msg.content,
+              })),
               tools: formatToolsForModel(tools, provider),
               tool_choice: "auto",
-            },
-          }),
+            })
+          : JSON.stringify({
+              model: selectedModel,
+              input: {
+                messages: formatMessagesForQianwen(messages),
+              },
+              parameters: {
+                result_format: "message",
+                tools: formatToolsForModel(tools, provider),
+                tool_choice: "auto",
+              },
+            }),
     });
     if (!res.ok) {
       throw new Error("请求失败");
     }
     const data = await res.json();
     const assistantResponse =
-        provider === "openai"
-          ? data.choices[0].message
-          : data.output?.choices?.[0]?.message || data.output?.choice;
+      provider === "openai"
+        ? data.choices[0].message
+        : data.output?.choices?.[0]?.message || data.output?.choice;
 
     if (!assistantResponse) {
       throw new Error("无法获取有效的助手响应");
     }
     return assistantResponse;
-  }
+  };
 
   const handleQianwenToolCalls = async (toolCalls: ApiToolCall[]) => {
-    const toolResults = [];
+    const toolResults: Message[] = [];
 
     for (const toolCall of toolCalls) {
       if (toolCall.type === "function" && toolCall.function) {
@@ -312,7 +324,7 @@ const LLMTab = ({
               : functionCall.arguments;
 
           const res = await callTool(toolName, toolParams);
-          console.log(JSON.stringify(res))
+          console.log(JSON.stringify(res));
           toolResults.push({
             role: "tool",
             name: toolName,
@@ -358,7 +370,11 @@ const LLMTab = ({
         hasToolCall = false;
 
         let assistantMessage: Message;
-        const assistantResponse = await handleProxyFetch(modelConfig.apiUrl, currentMessages, modelConfig.provider)
+        const assistantResponse = await handleProxyFetch(
+          modelConfig.apiUrl,
+          currentMessages,
+          modelConfig.provider,
+        );
 
         // 处理工具调用
         const toolCalls = assistantResponse.tool_calls || [];
@@ -374,13 +390,12 @@ const LLMTab = ({
           setMessages(currentMessages); // 实时更新UI
 
           // 执行工具调用
-          const toolResults =
+          const toolResults: Message[] =
             modelConfig.provider === "openai"
               ? await handleToolCall(toolCalls)
               : await handleQianwenToolCalls(toolCalls);
 
           // 添加工具结果到消息历史
-          // @ts-ignore
           currentMessages = [...currentMessages, ...toolResults];
           setMessages(currentMessages);
         } else {
@@ -395,10 +410,14 @@ const LLMTab = ({
       }
       const newMessage: Message = {
         role: "user",
-        content: '总结所有的信息，给我一个最终的结果。不要调用工具',
+        content: "总结所有的信息，给我一个最终的结果。不要调用工具",
       };
       currentMessages = [...currentMessages, newMessage];
-      const assistantResponse = await handleProxyFetch(modelConfig.apiUrl, currentMessages, modelConfig.provider);
+      const assistantResponse = await handleProxyFetch(
+        modelConfig.apiUrl,
+        currentMessages,
+        modelConfig.provider,
+      );
       const assistantMessage: Message = {
         role: "assistant",
         content: assistantResponse.content,
@@ -468,7 +487,7 @@ const LLMTab = ({
               {messages.map((message, index) => (
                 <div
                   key={index}
-                  className={`p-4 rounded-lg prose max-w-none ${
+                  className={`p-4 rounded-lg prose max-w-none markdown-content ${
                     message.role === "user"
                       ? "bg-primary text-primary-foreground ml-12"
                       : "bg-muted mr-12"
@@ -476,6 +495,25 @@ const LLMTab = ({
                 >
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
+                    components={{
+                      code(
+                        props: React.ComponentPropsWithoutRef<"code"> & {
+                          inline?: boolean;
+                        },
+                      ) {
+                        const { inline, className, children, ...rest } = props;
+                        const match = /language-(\w+)/.exec(className || "");
+                        return !inline && match ? (
+                          <code className={className} {...rest}>
+                            {children}
+                          </code>
+                        ) : (
+                          <code className={className} {...rest}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
                   >
                     {message.content}
                   </ReactMarkdown>
