@@ -11,7 +11,10 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TabsContent } from "@/components/ui/tabs";
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { CompatibilityCallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import "highlight.js/styles/github-dark.css";
 
 interface Message {
   role: "user" | "assistant";
@@ -55,7 +58,7 @@ const LLMTab = ({
   connectionStatus,
 }: {
   tools: Tool[];
-  callTool: (name: string, params: Record<string, unknown>) => void;
+  callTool: (name: string, params: Record<string, unknown>) => Promise<CompatibilityCallToolResult | null>;
   connectionStatus: "connected" | "connecting" | "disconnected" | "error";
 }) => {
   const [apiKey, setApiKey] = useState("");
@@ -66,23 +69,27 @@ const LLMTab = ({
   const [error, setError] = useState<string | null>(null);
   const prevHeightRef = useRef<number | null>(null);
   const isInitialMount = useRef(true);
-  
+
   // 使用useLayoutEffect确保在DOM更新前捕获并设置高度
   useLayoutEffect(() => {
-    const historyPaneElement = document.querySelector(".relative.border-t.border-border") as HTMLElement;
+    const historyPaneElement = document.querySelector(
+      ".relative.border-t.border-border",
+    ) as HTMLElement;
     if (!historyPaneElement) return;
-    
+
     if (isInitialMount.current) {
       // 首次挂载时保存当前高度
       const heightStyle = historyPaneElement.style.height;
-      const currentHeight = heightStyle ? parseInt(heightStyle.replace("px", "")) : 300;
+      const currentHeight = heightStyle
+        ? parseInt(heightStyle.replace("px", ""))
+        : 300;
       prevHeightRef.current = currentHeight;
       isInitialMount.current = false;
     }
-    
+
     // 最小化历史面板
     historyPaneElement.style.height = "30px";
-    
+
     // 在组件卸载时恢复历史面板高度
     return () => {
       if (prevHeightRef.current && prevHeightRef.current > 30) {
@@ -211,6 +218,11 @@ const LLMTab = ({
     }));
   };
 
+  const handleClearHistory = () => {
+    setMessages([]);
+    setError(null); // 同时清空错误提示
+  };
+
   const handleToolCall = async (toolCalls: ToolCall[]) => {
     const toolResults = [];
 
@@ -220,12 +232,12 @@ const LLMTab = ({
         const toolName = functionCall.name;
         try {
           const toolParams = JSON.parse(functionCall.arguments as string);
-          await callTool(toolName, toolParams);
+          const res = await callTool(toolName, toolParams);
           toolResults.push({
             tool_call_id: toolCall.id,
             role: "tool",
             name: toolName,
-            content: JSON.stringify({ result: "工具调用成功" }),
+            content: JSON.stringify(res),
           });
         } catch {
           toolResults.push({
@@ -241,6 +253,51 @@ const LLMTab = ({
     return toolResults;
   };
 
+  const handleProxyFetch = async (apiUrl: string, messages: Message[], provider: string) => {
+    const res = await proxyFetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body:
+        provider === "openai"
+        ? JSON.stringify({
+            model: selectedModel,
+            messages: messages.map((msg) => ({
+              role: msg.role,
+              content: msg.content,
+            })),
+            tools: formatToolsForModel(tools, provider),
+            tool_choice: "auto",
+          })
+        : JSON.stringify({
+            model: selectedModel,
+            input: {
+              messages: formatMessagesForQianwen(messages),
+            },
+            parameters: {
+              result_format: "message",
+              tools: formatToolsForModel(tools, provider),
+              tool_choice: "auto",
+            },
+          }),
+    });
+    if (!res.ok) {
+      throw new Error("请求失败");
+    }
+    const data = await res.json();
+    const assistantResponse =
+        provider === "openai"
+          ? data.choices[0].message
+          : data.output?.choices?.[0]?.message || data.output?.choice;
+
+    if (!assistantResponse) {
+      throw new Error("无法获取有效的助手响应");
+    }
+    return assistantResponse;
+  }
+
   const handleQianwenToolCalls = async (toolCalls: ApiToolCall[]) => {
     const toolResults = [];
 
@@ -249,15 +306,17 @@ const LLMTab = ({
         const functionCall = toolCall.function;
         const toolName = functionCall.name;
         try {
-          const toolParams = typeof functionCall.arguments === "string" 
-            ? JSON.parse(functionCall.arguments) 
-            : functionCall.arguments;
-          
-          await callTool(toolName, toolParams);
+          const toolParams =
+            typeof functionCall.arguments === "string"
+              ? JSON.parse(functionCall.arguments)
+              : functionCall.arguments;
+
+          const res = await callTool(toolName, toolParams);
+          console.log(JSON.stringify(res))
           toolResults.push({
             role: "tool",
             name: toolName,
-            content: JSON.stringify({ result: "工具调用成功" }),
+            content: JSON.stringify(res),
           });
         } catch (err) {
           console.error("工具调用错误:", err);
@@ -282,208 +341,72 @@ const LLMTab = ({
       content: inputMessage,
     };
 
-    setMessages((prev) => [...prev, newMessage]);
+    // 初始化消息历史
+    let currentMessages = [...messages, newMessage];
+    setMessages(currentMessages);
     setInputMessage("");
     setIsLoading(true);
 
     try {
       const modelConfig = getCurrentModelConfig();
-      let assistantMessage: Message;
+      let hasToolCall = true;
+      let iterationCount = 0;
+      const MAX_ITERATIONS = 20; // 安全阀防止无限循环
 
-      if (modelConfig.provider === "openai") {
-        const proxyResponse = await proxyFetch(modelConfig.apiUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: selectedModel,
-            messages: [...messages, newMessage].map((msg) => ({
-              role: msg.role,
-              content: msg.content,
-            })),
-            tools: formatToolsForModel(tools, "openai"),
-            tool_choice: "auto",
-          }),
-        });
+      while (hasToolCall && iterationCount < MAX_ITERATIONS) {
+        iterationCount++;
+        hasToolCall = false;
 
-        const data = await proxyResponse.json();
-
-        if (!proxyResponse.ok) {
-          throw new Error(data.error?.message || "请求失败");
-        }
-
-        const assistantResponse = data.choices[0].message;
+        let assistantMessage: Message;
+        const assistantResponse = await handleProxyFetch(modelConfig.apiUrl, currentMessages, modelConfig.provider)
 
         // 处理工具调用
-        if (
-          assistantResponse.tool_calls &&
-          assistantResponse.tool_calls.length > 0
-        ) {
-          // 添加助手消息到对话中
+        const toolCalls = assistantResponse.tool_calls || [];
+        if (toolCalls.length > 0) {
+          hasToolCall = true;
+
+          // 添加助手消息
           assistantMessage = {
             role: "assistant",
-            content:
-              assistantResponse.content || "我需要使用工具来回答这个问题...",
+            content: assistantResponse.content || "正在执行工具调用...",
           };
-          setMessages((prev) => [...prev, assistantMessage]);
+          currentMessages = [...currentMessages, assistantMessage];
+          setMessages(currentMessages); // 实时更新UI
 
-          // 处理工具调用并获取结果
-          const toolResults = await handleToolCall(
-            assistantResponse.tool_calls,
-          );
+          // 执行工具调用
+          const toolResults =
+            modelConfig.provider === "openai"
+              ? await handleToolCall(toolCalls)
+              : await handleQianwenToolCalls(toolCalls);
 
-          // 继续对话，包含工具调用结果
-          const followUpProxyResponse = await proxyFetch(modelConfig.apiUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: selectedModel,
-              messages: [
-                ...messages,
-                newMessage,
-                assistantResponse,
-                ...toolResults,
-              ],
-              tools: formatToolsForModel(tools, "openai"),
-              tool_choice: "auto",
-            }),
-          });
-
-          const followUpData = await followUpProxyResponse.json();
-
-          if (!followUpProxyResponse.ok) {
-            throw new Error(
-              followUpData.error?.message || "工具调用后请求失败",
-            );
-          }
-
-          // 对于OpenAI，使用直接的响应结构
-          assistantMessage = {
-            role: "assistant",
-            content: followUpData.choices?.[0]?.message?.content || "无响应内容",
-          };
+          // 添加工具结果到消息历史
+          // @ts-ignore
+          currentMessages = [...currentMessages, ...toolResults];
+          setMessages(currentMessages);
         } else {
+          // 最终响应
           assistantMessage = {
             role: "assistant",
             content: assistantResponse.content,
           };
-        }
-      } else if (modelConfig.provider === "qianwen") {
-        // 千问使用DashScope格式的API
-        const proxyResponse = await proxyFetch(modelConfig.apiUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: selectedModel,
-            input: {
-              messages: [
-                ...formatMessagesForQianwen(messages),
-                { role: "user", content: inputMessage },
-              ],
-            },
-            parameters: {
-              result_format: "message",
-              tools: formatToolsForModel(tools, "qianwen"),
-              tool_choice: "auto",
-            },
-          }),
-        });
-
-        const data = await proxyResponse.json();
-
-        if (!proxyResponse.ok || data.code) {
-          throw new Error(data.message || data.code || "请求失败");
-        }
-
-        // 千问API响应格式处理
-        const assistantResponse = data.output?.choices?.[0]?.message || data.output?.choice;
-        if (!assistantResponse) {
-          throw new Error("无法从响应中获取助手消息");
-        }
-
-        // 处理千问工具调用
-        if (
-          assistantResponse.tool_calls &&
-          assistantResponse.tool_calls.length > 0
-        ) {
-          // 添加助手消息到对话中
-          assistantMessage = {
-            role: "assistant",
-            content:
-              assistantResponse.content || "我需要使用工具来回答这个问题...",
-          };
-          setMessages((prev) => [...prev, assistantMessage]);
-
-          // 处理工具调用并获取结果
-          const toolResults = await handleQianwenToolCalls(
-            assistantResponse.tool_calls,
-          );
-
-          // 继续对话，包含工具调用结果
-          const followUpMessages = [
-            ...formatMessagesForQianwen(messages),
-            { role: "user", content: inputMessage },
-            {
-              role: "assistant",
-              content: assistantMessage.content,
-              tool_calls: assistantResponse.tool_calls,
-            },
-            ...toolResults,
-          ];
-
-          const followUpProxyResponse = await proxyFetch(modelConfig.apiUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: selectedModel,
-              input: {
-                messages: followUpMessages,
-              },
-              parameters: {
-                result_format: "message",
-                tools: formatToolsForModel(tools, "qianwen"),
-                tool_choice: "auto",
-              },
-            }),
-          });
-
-          const followUpData = await followUpProxyResponse.json();
-
-          if (!followUpProxyResponse.ok || followUpData.code) {
-            throw new Error(
-              followUpData.message || followUpData.code || "工具调用后请求失败",
-            );
-          }
-
-          const followUpAssistantMessage = followUpData.output?.choices?.[0]?.message || followUpData.output?.choice;
-          if (!followUpAssistantMessage) {
-            throw new Error("无法从后续响应中获取助手消息");
-          }
-          
-          assistantMessage = {
-            role: "assistant",
-            content: followUpAssistantMessage.content || "无响应内容",
-          };
-        } else {
-          assistantMessage = {
-            role: "assistant",
-            content: assistantResponse.content,
-          };
+          currentMessages = [...currentMessages, assistantMessage];
+          setMessages(currentMessages);
         }
       }
+      const newMessage: Message = {
+        role: "user",
+        content: '总结所有的信息，给我一个最终的结果。不要调用工具',
+      };
+      currentMessages = [...currentMessages, newMessage];
+      const assistantResponse = await handleProxyFetch(modelConfig.apiUrl, currentMessages, modelConfig.provider);
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: assistantResponse.content,
+      };
+      currentMessages = [...currentMessages, assistantMessage];
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      // 最终更新消息状态
+      setMessages(currentMessages);
     } catch (error) {
       console.error("Error:", error);
       setError(error instanceof Error ? error.message : "发生未知错误");
@@ -545,13 +468,17 @@ const LLMTab = ({
               {messages.map((message, index) => (
                 <div
                   key={index}
-                  className={`p-4 rounded-lg ${
+                  className={`p-4 rounded-lg prose max-w-none ${
                     message.role === "user"
                       ? "bg-primary text-primary-foreground ml-12"
                       : "bg-muted mr-12"
                   }`}
                 >
-                  {message.content}
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
                 </div>
               ))}
               {isLoading && (
@@ -569,6 +496,14 @@ const LLMTab = ({
             onKeyPress={(e) => e.key === "Enter" && handleSend()}
             disabled={connectionStatus !== "connected"}
           />
+          <Button
+            onClick={handleClearHistory}
+            disabled={messages.length === 0}
+            variant="outline"
+            className="ml-1"
+          >
+            清空历史
+          </Button>
           <Button
             onClick={handleSend}
             disabled={isLoading || !apiKey || connectionStatus !== "connected"}

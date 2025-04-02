@@ -414,6 +414,24 @@ const App = () => {
     );
     setToolResult(response);
   };
+  const callToolRes = async (name: string, params: Record<string, unknown>) => {
+    const response = await makeRequest(
+      {
+        method: "tools/call" as const,
+        params: {
+          name,
+          arguments: params,
+          _meta: {
+            progressToken: progressTokenRef.current++,
+          },
+        },
+      },
+      CompatibilityCallToolResultSchema,
+      "tools",
+    );
+    setToolResult(response);
+    return response;
+  };
 
   const handleRootsChange = async () => {
     await sendNotification({ method: "notifications/roots/list_changed" });
@@ -660,9 +678,8 @@ const App = () => {
                     />
                     <LLMTab
                       tools={tools}
-                      callTool={(name, params) => {
-                        clearError("tools");
-                        callTool(name, params);
+                      callTool={async (name, params) => {
+                        return await callToolRes(name, params);
                       }}
                       connectionStatus={connectionStatus}
                     />
