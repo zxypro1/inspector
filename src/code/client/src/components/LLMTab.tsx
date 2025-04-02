@@ -44,10 +44,10 @@ interface ApiToolCall {
 }
 
 // 获取代理服务器URL
-const params = new URLSearchParams(window.location.search);
-const PROXY_PORT = params.get("proxyPort") ?? "3000";
+// const params = new URLSearchParams(window.location.search);
+// const PROXY_PORT = params.get("proxyPort") ?? "3000";
 console.log(import.meta.env);
-const PROXY_SERVER_URL = `http://${import.meta.env.VITE_SERVER_URL}:${PROXY_PORT}`;
+const PROXY_SERVER_URL = `${import.meta.env.VITE_SERVER_URL}`;
 
 const LLMTab = ({
   tools = [],

@@ -51,8 +51,8 @@ import { InspectorConfig } from "./lib/configurationTypes";
 import LLMTab from "./components/LLMTab";
 
 const params = new URLSearchParams(window.location.search);
-const PROXY_PORT = params.get("proxyPort") ?? "3000";
-const PROXY_SERVER_URL = `http://${import.meta.env.VITE_SERVER_URL}:${PROXY_PORT}`;
+// const PROXY_PORT = params.get("proxyPort") ?? "3000";
+const PROXY_SERVER_URL = `${import.meta.env.VITE_SERVER_URL}`;
 const CONFIG_LOCAL_STORAGE_KEY = "inspectorConfig_v1";
 
 const App = () => {

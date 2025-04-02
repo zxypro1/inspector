@@ -28,7 +28,7 @@ resources:
     component: fc3 # 组件名称，Serverless Devs 工具本身类似于一种游戏机，不具备具体的业务能力，组件类似于游戏卡，用户通过向游戏机中插入不同的游戏卡实现不同的功能，即通过使用不同的组件实现不同的具体业务能力
     actions:
       pre-deploy:
-        - run: export PATH=/usr/local/versions/node/v20.8.1/bin:$PATH || true || ver && npm install && npm run build
+        - run: export PATH=/usr/local/versions/node/v20.8.1/bin:$PATH && npm install && npm run build
           path: ./code
     props:
       region: ${vars.region} # 关于变量的使用方法，可以参考：https://docs.serverless-devs.com/user-guide/spec/#_3
@@ -44,11 +44,14 @@ resources:
         PATH: >-
           /var/fc/lang/nodejs20/bin:/opt/nodejs20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       customRuntimeConfig:
-        port: 5173
+        port: 3000
         command:
           - npm
           - run
           - start-server
+      instanceConcurrency: 200
+      concurrencyConfig:
+        reservedConcurrency: 1
       triggers:
         - triggerName: httpTrigger
           triggerType: http
@@ -68,7 +71,7 @@ resources:
     component: fc3 # 组件名称，Serverless Devs 工具本身类似于一种游戏机，不具备具体的业务能力，组件类似于游戏卡，用户通过向游戏机中插入不同的游戏卡实现不同的功能，即通过使用不同的组件实现不同的具体业务能力
     actions:
       pre-deploy:
-        - run: export PATH=/usr/local/versions/node/v20.8.1/bin:$PATH || true || ver && npm install && npm run build
+        - run: export PATH=/usr/local/versions/node/v20.8.1/bin:$PATH && export VITE_SERVER_URL=${resources.inspector_server.info.url.system_url} && npm install && npm run build
           path: ./code
     props:
       region: ${vars.region} # 关于变量的使用方法，可以参考：https://docs.serverless-devs.com/user-guide/spec/#_3
