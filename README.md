@@ -1,81 +1,90 @@
-# 应用开发说明
 
-<p align="center"><b> 中文 | <a href="./readme_en.md"> English </a>  </b></p>
+> 注：当前项目为 Serverless Devs 应用，由于应用中会存在需要初始化才可运行的变量（例如应用部署地区、函数名等等），所以**不推荐**直接 Clone 本仓库到本地进行部署或直接复制 s.yaml 使用，**强烈推荐**通过 `s init ${模版名称}` 的方法或应用中心进行初始化，详情可参考[部署 & 体验](#部署--体验) 。
 
-> Serverless Devs 应用开发需要严格遵守 [Serverless Package Model](../../spec/zh/0.0.2/serverless_package_model/readme.md) 中的 [应用模型规范](../../spec/zh/0.0.2/serverless_package_model/3.package_model.md#应用模型规范)。在[应用模型规范](../../spec/zh/0.0.2/serverless_package_model/3.package_model.md#应用模型规范)中有关于[应用模型元数据](../../spec/zh/0.0.2/serverless_package_model/3.package_model.md#应用模型元数据)的说明。
+# mcp-inspector 帮助文档
 
-Serverless Devs 的组件开发案例已经被集成到 Serverless Devs 命令行工具中，通过对 Serverless Devs 的命令行工具，可以进行空白应用项目的初始化，开发者只需要执行`s init`即可看到：
+<description>
 
-```shell script
+MCP Serverless Devs inspector
 
-🚀  More applications: https://registry.serverless-devs.com
+</description>
 
-? Hello Serverless for Cloud Vendors (Use arrow keys or type to search)
-❯ Alibaba Cloud Serverless
-  AWS Cloud Serverless
-  Tencent Cloud Serverless
-  Baidu Cloud Serverless
-  Dev Template for Serverless Devs
-```
 
-此时，选择最后的`Dev Template for Serverless Devs`，并按回车：
+## 资源准备
 
-```shell script
-$ s init
+使用该项目，您需要有开通以下服务并拥有对应权限：
 
-🚀  More applications: https://registry.serverless-devs.com
+<service>
 
-? Hello Serverless for Cloud Vendors Dev Template for Serverless Devs
-? Which template do you like? (Use arrow keys or type to search)
-❯ Application Scaffolding
-  Component Scaffolding
-  Plugin Scaffolding
-```
 
-此时，选择`Application Scaffolding`，并按回车，即可完成一个完整的 Serverless Devs 的 Application 项目的初始化，可以通过命令查看文件树：
 
-```shell script
-$ find . -print | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
-.
-|____readme.md
-|____version.md
-|____publish.yaml
-|____readme_en.md
-|____src
-| |____s.yaml
-| |____code
-| | |____index.js
-| |____readme.md
-```
+| 服务/业务 |  权限  | 相关文档 |
+| --- |  --- | --- |
+| 函数计算 |  AliyunFCFullAccess | [帮助文档](https://help.aliyun.com/product/2508973.html) [计费文档](https://help.aliyun.com/document_detail/2512928.html) |
 
-这其中：
+</service>
 
-| 目录         | 含义                                                     |
-| ------------ | -------------------------------------------------------- |
-| readme.md    | 对该组件的描述，或帮助文档信息                           |
-| version.md   | 版本的描述，例如当前版本的更新内容等                     |
-| publish.yaml | 项目所必须的文件，Serverless Devs Package 的开发识别文档 |
-| src          | 应用所在目录，需要包括`s.yaml`和相关的应用代码等         |
+<remark>
 
-此时，开发者可以在 src 下完成应用的开发，并对项目进行`publish.yaml`文件的编写。完成之后，即可通过以下几个步骤发布项目：
 
-- 更改 `publish.yaml` 里的 `Version` 字段。确保版本号比现有最高版本号大 1，例如：1.0.0 -> 1.0.1。
 
-  > 您可以使用固定的 dev 版本用于持续发布测试版本
+</remark>
 
-- 首次发布需要通过 [registry](https://docs.serverless-devs.com/serverless-devs/command/registry) 命令先登录 Serverless Devs Registry。
+<disclaimers>
 
-  ```shell script
-  s registry login
-  ```
 
-  随后浏览器会跳出登陆窗口，根据提示进行操作即可。
 
-- 后续直接执行 `s registry publish` 即可进行发布
+</disclaimers>
 
-- 测试应用
+## 部署 & 体验
 
-  如果您使用 dev 版本进行了应用的发布， 假设您的应用名字为 start-application-v3, 那么您可以使用：
+<appcenter>
+   
+- :fire: 通过 [云原生应用开发平台 CAP](https://cap.console.aliyun.com/template-detail?template=mcp-inspector) ，[![Deploy with Severless Devs](https://img.alicdn.com/imgextra/i1/O1CN01w5RFbX1v45s8TIXPz_!!6000000006118-55-tps-95-28.svg)](https://cap.console.aliyun.com/template-detail?template=mcp-inspector) 该应用。
+   
+</appcenter>
+<deploy>
+    
+   
+</deploy>
 
-  - 本地终端执行: `s init start-application-v3@dev`
-  - 浏览器打开: https://fcnext.console.aliyun.com/applications/create?template=start-application-v3@dev 进行测试
+## 案例介绍
+
+<appdetail id="flushContent">
+
+MCP 官方 inspector 的 Serverless Devs 模版。基于官方 inspector 加入了：  
+- LLM支持，目前接入了 OpenAI，Claude 和通义千问。
+
+计划加入：  
+- 多 Tool 支持
+
+</appdetail>
+
+
+
+
+
+
+
+## 使用流程
+
+<usedetail id="flushContent">
+
+1. 部署
+2. 选择 inspector_client 服务，点击域名进入web界面使用。
+
+</usedetail>
+
+## 二次开发指南
+
+<development id="flushContent">
+
+暂无
+
+</development>
+
+
+
+
+
+
